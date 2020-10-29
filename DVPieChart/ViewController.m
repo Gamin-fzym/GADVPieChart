@@ -25,10 +25,13 @@
     DVPieChart *chart1 = [[DVPieChart alloc] initWithFrame:CGRectMake(20, 44, [UIScreen mainScreen].bounds.size.width-40, 320)];
     chart1.useTopZone = YES;
     chart1.useBottomZone = YES;
+    chart1.useTextSize = CGSizeMake(60, 30);
+    chart1.showTextBorder = YES;
+    chart1.verticalLineHeight = 0;
     [self.view addSubview:chart1];
     NSMutableArray *tempArray = [NSMutableArray new];
-    for (int i = 0 ; i < 15 ; i ++) {
-        [tempArray addObject:@{@"title":[NSString stringWithFormat:@"数据%d",i], @"value":[NSString stringWithFormat:@"%d",1000+100*i]}];
+    for (int i = 0 ; i < 20 ; i ++) {
+        [tempArray addObject:@{@"title":[NSString stringWithFormat:@"数据%d",i], @"value":[NSString stringWithFormat:@"%d",200+600*(i%7)]}];
     }
     [self setupChartView:chart1 ringsArray:tempArray];
     

@@ -20,6 +20,9 @@
 @property (nonatomic, strong) NSMutableArray *pointArray;
 @property (nonatomic, strong) NSMutableArray *centerArray;
 
+@property (nonatomic, assign) NSInteger beforeIndex;    // 前一个点所在区域的索引
+@property (nonatomic, assign) NSInteger firstZoneIndex; // 分配的第一个区域的索引
+
 @end
 
 @implementation DVPieChart
@@ -27,6 +30,11 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     if (self = [super initWithFrame:frame]) {
         self.backgroundColor = [UIColor whiteColor];
+        _firstZoneIndex = -1;
+        _beforeIndex = -1;
+        _useTextSize = CGSizeMake(80, 30);
+        _horizontalLineWidth = 20;
+        _verticalLineHeight = 20;
     }
     return self;
 }
@@ -49,34 +57,8 @@
     if ([self judgeIsMinScreen]) {
         CHART_MARGIN = 100;
     }
-    
-    /// 计算旋转角度
-    float maxRate = 0;
-    NSInteger kk = 0;
-    for (NSInteger ll = 0 ; ll < self.dataArray.count ; ll ++) {
-        DVFoodPieModel *hhmodel = [self.dataArray objectAtIndex:ll];
-        if (hhmodel.rate > maxRate) {
-            maxRate = hhmodel.rate;
-            kk = ll;
-        }
-    }
-    float totalRate = 0;
-    for (NSInteger ll = 0 ; ll < kk ; ll ++) {
-        DVFoodPieModel *hhmodel = [self.dataArray objectAtIndex:ll];
-        totalRate += hhmodel.rate;
-    }
-    /// 1/2*M_PI = totalRate/x
-    float totalJD = totalRate * 2*M_PI;
-    /// 1/2*M_PI = halfMaxRate/x
-    float halfMaxRate = maxRate/2.0;
-    float halfJD = halfMaxRate * 2*M_PI;
-    CGFloat useStart = 0;//-M_PI_2/2.0;
-    if (totalJD + halfJD > M_PI) {
-        useStart = -(totalJD + halfJD - M_PI);
-    } else {
-        useStart = M_PI - (totalJD + halfJD);
-    }
-    ///
+
+    CGFloat useStart = 0;
     CGFloat min = self.bounds.size.width > self.bounds.size.height ? self.bounds.size.height : self.bounds.size.width;
     CGPoint center =  CGPointMake(self.bounds.size.width * 0.5, self.bounds.size.height * 0.5);
     CGFloat radius = min * 0.5 - CHART_MARGIN;
@@ -89,7 +71,7 @@
         UIColor *color = _COLOR_ARRAY.firstObject;
         UIBezierPath *path = [UIBezierPath bezierPathWithArcCenter:center radius:radius startAngle:start endAngle:end clockwise:true];
         [color set];
-        //添加一根线到圆心
+        // 添加一根线到圆心
         [path addLineToPoint:center];
         [path fill];
     } else {
@@ -157,15 +139,13 @@
     [_allLocationArray removeAllObjects];
     
     CGRect selfRect = self.frame;
-    CGSize textSize = CGSizeMake(80, 30);
-    float levelDistance = 30;
-    if ([self judgeIsMinScreen]) {
-        textSize = CGSizeMake(80, 30);
-        levelDistance = 30;
-    }
-    float topLevelDistance = 8;
-    
-    float baseX = 0;//16;
+    // 文本区域大小
+    CGSize textSize = self.useTextSize;
+    // 左右的横线长度
+    float levelDistance = self.horizontalLineWidth;
+    // 上下的竖线长度
+    float topLevelDistance = self.verticalLineHeight;
+    float baseX = 0;;
     float changex = baseX;
     NSInteger p = (NSInteger)((selfRect.size.width - 2*textSize.width - 2*baseX) / textSize.width);
     changex = (selfRect.size.width - p*textSize.width)/2.0;
@@ -198,7 +178,7 @@
         NSMutableArray *tempBottomArr = [NSMutableArray new];
         for (int i = 0 ; i < 10 ; i ++) {
             DVPieLocationModel *loc = [DVPieLocationModel new];
-            CGRect newRect = CGRectMake(changex + i*textSize.width, selfRect.size.height - baseY - textSize.height, textSize.width, textSize.height);
+            CGRect newRect = CGRectMake(changex + i*textSize.width, selfRect.size.height - textSize.height, textSize.width, textSize.height);
             loc.locationRect = newRect;
             loc.inPoint = CGPointMake(CGRectGetMinX(newRect) + textSize.width/2.0, CGRectGetMinY(newRect));
             loc.levelPoint = CGPointMake(loc.inPoint.x, loc.inPoint.y-topLevelDistance);
@@ -232,7 +212,7 @@
         NSMutableArray *tempTopArr = [NSMutableArray new];
         for (int i = 0 ; i < 10 ; i ++) {
             DVPieLocationModel *loc = [DVPieLocationModel new];
-            CGRect newRect = CGRectMake(changex + i*textSize.width, baseY, textSize.width, textSize.height);
+            CGRect newRect = CGRectMake(changex + i*textSize.width, 0, textSize.width, textSize.height);
             loc.locationRect = newRect;
             loc.inPoint = CGPointMake(CGRectGetMinX(newRect) + textSize.width/2.0, CGRectGetMaxY(newRect));
             loc.levelPoint = CGPointMake(loc.inPoint.x, loc.inPoint.y+topLevelDistance);
@@ -246,46 +226,86 @@
     }
    
     /// 文本框提示
-    for (DVPieLocationModel *loc in _allLocationArray) {
-        UIView *theView = [UIView new];
-        theView.frame = loc.locationRect;
-        [theView.layer setBorderColor:[[UIColor blueColor] CGColor]];
-        [theView.layer setBorderWidth:1];
-        [self addSubview:theView];
+    if (self.showTextBorder) {
+        for (DVPieLocationModel *loc in _allLocationArray) {
+            UIView *theView = [UIView new];
+            theView.frame = loc.locationRect;
+            [theView.layer setBorderColor:[[UIColor blueColor] CGColor]];
+            [theView.layer setBorderWidth:1];
+            [self addSubview:theView];
 
-        UIView *tempView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 5, 5)];
-        tempView.center = loc.inPoint;
-        tempView.backgroundColor = [UIColor redColor];
-        [self addSubview:tempView];
+            UIView *tempView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 5, 5)];
+            tempView.center = loc.inPoint;
+            tempView.backgroundColor = [UIColor redColor];
+            [self addSubview:tempView];
+        }
     }
 }
 
 // 根据一个点获取距离它最近的内容区
 - (DVPieLocationModel *)getZonePointIndex:(NSInteger)index {
-    CGPoint point = [self getTwistPointWithIndex:index];
-    ///
+    // 剩余未分配点的个数。
+    NSInteger dataCount = _pointArray.count;
+    if (dataCount > _allLocationArray.count) {
+        dataCount = _allLocationArray.count;
+    }
+    NSInteger residueCount = dataCount - (index+1);
+    // 当前要分配的点
+    CGPoint point = [self getGuidePointWithIndex:index];
     DVPieLocationModel *rModel;
     CGFloat minDistance = MAXFLOAT;
-    for (DVPieLocationModel *loc in _allLocationArray) {
-        if (self.dataArray.count < 5) { // 小于5条数据是不使用下部区域
-            if (loc.direction == 1) {
+    NSInteger selectIndex = -1;
+    for (int i = 0 ; i < _allLocationArray.count ; i ++) {
+        // 后面的不允许连接前面的几个点，这样会导致线条交叉，去掉这几个点后后面的点就更近了
+        if (_beforeIndex != -1) {
+            NSInteger dev = 0;
+            if (_beforeIndex > i) {
+                dev = -(_beforeIndex-(i+1));
+                if (dev <= 0 && dev > -8) {
+                    continue;
+                }
+            } else {
+                dev = -(_allLocationArray.count - (i+1) + _beforeIndex);
+                if (dev <= 0 && dev > -8) {
+                    continue;
+                }
+            }
+        }
+
+        // 第一个分配区域逆时针到目前分配的区域不能小于剩余分配点的个数
+        if (_firstZoneIndex != -1) {
+            NSInteger dev = 0;
+            if (_firstZoneIndex < i) {
+                dev = _allLocationArray.count - (i+1) + _firstZoneIndex;
+            } else {
+                dev = _firstZoneIndex - (i+1);
+            }
+            if (dev < residueCount) {
                 continue;
             }
         }
+
+        // 已使用的点，不再参与计算
+        DVPieLocationModel *loc = [_allLocationArray objectAtIndex:i];
         if (!loc.isUse) {
-            CGFloat distance;
             CGFloat distance1 = [self jsDistanceWithPointOne:point PointTwo:loc.levelPoint];
             CGFloat distance2 = [self jsDistanceWithPointOne:loc.levelPoint PointTwo:loc.inPoint];
-            distance = distance1 + distance2;
+            CGFloat distance = distance1 + distance2;
             if (loc.direction == 1 || loc.direction == 3) {
-                // 手动加长距离，让上、下为非首选
-                distance = distance + 20;
+                distance = distance + 32; // 上、下 增加计算距离
             }
             if (distance < minDistance) {
                 minDistance = distance;
                 rModel = loc;
+                selectIndex = i;
             }
         }
+    }
+    if (selectIndex != -1) {
+        if (_beforeIndex == -1) {
+            _firstZoneIndex = selectIndex;
+        }
+        _beforeIndex = selectIndex;
     }
     return rModel;
 }
@@ -309,7 +329,6 @@
         // 模型数据（绘制数据时要用）
         DVFoodPieModel *model = self.modelArray[i];
         // 模型的数据
-        //NSString *name = model.name;
         NSString *number = [NSString stringWithFormat:@"%.2f%%", model.rate * 100];
         NSString *name = [NSString stringWithFormat:@"%@",model.name];
 
@@ -317,11 +336,6 @@
         CGPoint startPoint = [self getGuidePointWithIndex:i];
         CGFloat startX = startPoint.x;
         CGFloat startY = startPoint.y;
-        // 指引线转折点的位置(x, y)
-        CGPoint breakPoint = [self getTwistPointWithIndex:i];
-        CGFloat breakPointX = breakPoint.x;
-        CGFloat breakPointY = breakPoint.y;
-        
         // 文本段落属性(绘制文字和数字时需要)
         NSMutableParagraphStyle * paragraph = [[NSMutableParagraphStyle alloc]init];
         // 文字靠右
@@ -329,13 +343,16 @@
         
         // 指引线起点（x, y）
         DVPieLocationModel *loModel = [self getZonePointIndex:i];
+        if (!loModel) {
+            return;
+        }
         loModel.isUse = YES;
         CGFloat endX = loModel.inPoint.x;
         CGFloat endY = loModel.inPoint.y;
         
         // 绘制文字和数字时的起始位置（x, y）与上面的合并起来就是frame
-        CGFloat numberX;// = breakPointX;
-        CGFloat numberY = 0.0;// = breakPointY - numberHeight;
+        CGFloat numberX;
+        CGFloat numberY = 0.0;
         // 绘制文字和数字时，所占的size（width和height）
         // width使用lineWidth更好，我这么写固定值是为了达到产品要求
         CGFloat numberWidth = 80.f;
@@ -368,7 +385,6 @@
         UIBezierPath *path = [UIBezierPath bezierPath];
         [path moveToPoint:CGPointMake(endX, endY)];
         [path addLineToPoint:CGPointMake(loModel.levelPoint.x, loModel.levelPoint.y)];
-        [path addLineToPoint:CGPointMake(breakPointX, breakPointY)];
         [path addLineToPoint:CGPointMake(startX, startY)];
         CGContextSetLineWidth(ctx, 0.5);
         //设置颜色
@@ -386,7 +402,7 @@
         [self addSubview:view];
         CGRect viewRect = view.frame;
         viewRect.size = CGSizeMake(4, 4);
-        viewRect.origin = CGPointMake(breakPointX-2, breakPointY-2);
+        viewRect.origin = CGPointMake(startX-2, startY-2);
         view.frame = viewRect;
         view.layer.cornerRadius = 2;
         view.layer.masksToBounds = true;
@@ -406,17 +422,6 @@
     CGFloat startX = point.x + 5 * cos(radianCenter);
     CGFloat startY = point.y + 5 * sin(radianCenter);
     return CGPointMake(startX, startY);
-}
-
-- (CGPoint)getTwistPointWithIndex:(NSInteger)index {
-    // 每个圆弧中心店的位置
-    CGPoint point = [_pointArray[index] CGPointValue];
-    // 每个圆弧中心点的角度
-    CGFloat radianCenter = [_centerArray[index] floatValue];
-    // 指引线转折点的位置(x, y)
-    CGFloat breakPointX = point.x + 5 * cos(radianCenter);
-    CGFloat breakPointY = point.y + 5 * sin(radianCenter);
-    return CGPointMake(breakPointX, breakPointY);
 }
 
 @end
