@@ -6,3 +6,7 @@
 <br/>2、再去view的四周计算文本的放置区域；
 <br/>3、写个算法配对距离每个饼状图区域最合适的文本区域；
 <br/>4、绘制饼状图各区域到最合适的文本区域的指示线和文本区域的文字；
+
+<br/>示意图:
+<br/>![1001.png](https://github.com/Gamin-fzym/GADVPieChart/blob/main/img-storage/1001.png)
+<br/>![1002.png](https://github.com/Gamin-fzym/GADVPieChart/blob/main/img-storage/1002.png)
